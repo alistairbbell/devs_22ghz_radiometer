@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
+Created on Wed Oct 25 13:45:06 2023
+
 Author: Alistair Bell
+
 Contact: alistair.bell@unibe.ch
-Created: 11.09.23
-About:
 """
 
 #%%
@@ -17,7 +20,6 @@ import os
 import sys
 sys.path.append('../../')
 import matplotlib.dates as mdates
-from utils import temps
 import uuid
 from smb.SMBConnection import SMBConnection
 import logging
@@ -25,7 +27,11 @@ import traceback
 from netCDF4 import Dataset
 from logging.handlers import RotatingFileHandler
 
-
+#%%
+absolute_script_path = os.path.abspath(__file__)
+script_directory = os.path.dirname(absolute_script_path)
+# This is the absolute path of the current script
+os.chdir(script_directory)
 #%%
 # Connection details
 server_name = 'datatub'  #server descriptor
@@ -34,12 +40,12 @@ username = 'tub_r'
 password = ''
 client_name = 'user'  # local machine
 share_name = 'srv'
-server_basepath = 'instruments/miawara/l2/'
+server_basepath = 'instruments/miawara/l2/l2_usrp_inc_noise/'
 data_folder = "../../data"
 download_folder = os.path.join(data_folder, "tmp")
 temp_file_path = os.path.join(download_folder, "temp_file.nc")
 save_output_dir = os.path.join(data_folder, "interim")
-output_file_name = 'MIAWARA_concat_H2O_2010_2023.nc'
+output_file_name = 'MIAWARA_USRP_incNoise_concat_H2O_2022_2023.nc'
 outFullPath = os.path.join(save_output_dir, output_file_name)
 h2o_string = 'retrieval'
 log_folder = "../../log"
@@ -51,7 +57,7 @@ handler = RotatingFileHandler(os.path.join(log_folder,"miawara_data_retrieve.txt
 logger.addHandler(handler)
 
 #%%#%% Retrieve the MIAWARA data from the tub server
-years = np.arange(2010,2024)
+years = np.arange(2022,2024)
 years_s = [str(i) for i in years]
 
 # Create connection to server
@@ -62,7 +68,7 @@ conn.connect(server_ip)
 file_paths_to_merge = []
 
 #variables to drop from the xarray dataset (dataset too big if we keep them)
-vars_to_drop = ['y', 'yf', 'tau', 'J'] 
+vars_to_drop = ['y', 'yf', 'tau', 'J', 'frequency'] 
 
 #initialise file iteration number
 iterno = 0
@@ -74,13 +80,18 @@ for year in years_s:
     for file in files:
         if h2o_string in file.filename and file.filename.endswith(".nc"):
             print(os.path.join(svr_data_path, file.filename)) #for debug
+            
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+                print(f"{temp_file_path} has been deleted!")
+                
             with open(temp_file_path, 'wb') as local_file:
                 conn.retrieveFile(share_name, os.path.join(svr_data_path, file.filename), local_file)
     
             # Load the file into xarray
             ds = xr.open_dataset(temp_file_path, decode_times=False)
             ds_red = ds.drop_vars(vars_to_drop) #drop heavy vars
-            
+            ds_red = ds_red.drop_vars('A') #drop heavy vars
             
             #if not (ds.time.dtype == np.float64 or ds.time.dtype == np.dtype('O')):
             if iterno == 0: #if first file initialise xarray
@@ -88,7 +99,7 @@ for year in years_s:
                 iterno += 1
             else: #else try to append to existing xarray
                 try:
-                    concatenated_ds = xr.merge([concatenated_ds, ds_red])
+                    concatenated_ds = xr.concat([concatenated_ds, ds_red], dim = 'time')
                     iterno += 1
                 except Exception as e:
                     print('error encountered')
@@ -96,15 +107,50 @@ for year in years_s:
             ds.close() #close temporary datasets
             ds_red.close()
             
+#%%#%% Handling of Averaging Kernel the MIAWARA data from the tub server
+years = np.arange(2022,2024)
+years_s = [str(i) for i in years]
+
+# Create connection to server
+conn = SMBConnection(username, password, client_name, server_name, use_ntlm_v2=True)
+conn.connect(server_ip)
+
+# List all files in the root of the share
+file_paths_to_merge = []
+
+#variables to drop from the xarray dataset (dataset too big if we keep them)
+vars_to_drop = ['y', 'yf', 'tau', 'J']
+
+A_all = np.zeros([80,80,0])
+time_all = np.zeros([0])
+#initialise file iteration number
+iterno = 0
+
+for year in years_s:
+    svr_data_path = os.path.join(server_basepath, year) 
+    files = conn.listPath(share_name, svr_data_path)
+    
+    for file in files:
+        if h2o_string in file.filename and file.filename.endswith(".nc"):
+            print(os.path.join(svr_data_path, file.filename)) #for debug
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+                print(f"{temp_file_path} has been deleted!")
+            with open(temp_file_path, 'wb') as local_file:
+                conn.retrieveFile(share_name, os.path.join(svr_data_path, file.filename), local_file)
+    
+            # Load the file into xarray
+            ds = xr.open_dataset(temp_file_path, decode_times=False)
+            A = np.expand_dims( np.array(ds.A), axis=-1)
+            A_all = np.concatenate((A_all, A), axis=2)
+            
+            time_all = np.append(time_all, ds.time.values)
+conn.close()            
+            
+            
+#%%
+concatenated_ds = concatenated_ds.assign_coords(new_pressure=ds['pressure'])
+concatenated_ds['A'] = (('pressure', 'new_pressure', 'time'), A_all)
+concatenated_ds = concatenated_ds.sortby('time')
 concatenated_ds.to_netcdf(outFullPath)
 conn.close()
-#%%
-
-
-
-
-
-
-
-
-

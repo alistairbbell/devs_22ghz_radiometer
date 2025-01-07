@@ -15,6 +15,11 @@ from netCDF4 import Dataset
 import os
 import sys
 sys.path.append('../../')
+<<<<<<< Updated upstream
+sys.path.append('../')
+
+=======
+>>>>>>> Stashed changes
 import matplotlib.dates as mdates
 from utils import temps
 import uuid
@@ -80,7 +85,11 @@ plt.ylim([1e1,1e-2])
 plt.ylabel('Pressure (hPa)')
 plt.xlabel('Measurement Response')
 plt.grid()
+<<<<<<< Updated upstream
+#plt.savefig(os.path.join(plot_folder, 'average_measurement_response.pdf'), format = 'pdf')
+=======
 plt.savefig(os.path.join(plot_folder, 'average_measurement_response.pdf'), format = 'pdf')
+>>>>>>> Stashed changes
 #%% plot water vapour time series
 
 plot = my_xr.q.plot.contourf(x = 'time', y = 'pressure', levels = 20, vmin = 1e-6, vmax = 12e-6)

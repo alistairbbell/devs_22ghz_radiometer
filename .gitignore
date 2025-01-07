@@ -2,3 +2,10 @@
 .env
 /data/
 /log/
+/output/
+/additional_files/
+/Documents/article_pdf/
+/Documents/latex/
+*.gif
+*.png
+*.pdf

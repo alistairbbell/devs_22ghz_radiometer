@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Oct 11 11:38:28 2023
+Created on Thu Dec 21 10:53:06 2023
 
 Author: Alistair Bell
 
@@ -30,19 +30,20 @@ from scipy.interpolate import interp1d
 #%% paths
 data_folder = "../../data"
 log_folder = "../../log"
-MLS_filename = 'MLS_concat_H2O.nc'
+MLS_filename = 'MLS_concat_H2O_v2.nc'
 fig_file = "../../output/figs"
 data_file = "../../output/data"
 
 interim_data= os.path.join(data_folder, 'interim', MLS_filename)
 #%%
-ds = xr.open_dataset(interim_data)
+ds = xr.open_dataset(interim_data, decode_times = False)
 current_a_prior = '/home/alistair/MIAWARA_ret/operational/MIAWARA/extra_files/ecmwf_2010_2015_3_9_15_21h.nc'
-ds_ecmwf = xr.open_dataset(current_a_prior)
+ds_ecmwf = xr.open_dataset(current_a_prior, decode_times = False)
+
 
 #%%first entry each year
 first_entry_each_year = ds.groupby('time.year').first()
-q = np.array(first_entry_each_year['value'])
+q = np.array(ds['q'][:,:])
 
 qMean = np.mean(q, axis = 0)
 rmse = np.sqrt( np.mean((q-qMean)**2, axis = 0))
@@ -69,7 +70,6 @@ for month in range(1, 13):  # 1 to 12 for January to December
     q_std_list.append(q_std)
 
     # Extract 'pressure' data for this month's first day
-    
     P_mean_list.append(P_mean)
 
 # Convert the lists to numpy arrays
@@ -83,7 +83,6 @@ plt.figure(figsize=(6, 8))
 
 plt.plot(q_std_list[1]*1e6, P_mean/100, label = 'January')
 plt.plot(q_std_list[4]*1e6, P_mean/100, label = 'April')
-
 plt.plot(q_std_list[7]*1e6, P_mean/100, label = 'July')
 plt.plot(q_std_list[11]*1e6, P_mean/100, label = 'November')
 
