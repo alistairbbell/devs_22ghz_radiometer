@@ -10,11 +10,6 @@ level 1 and level 2 data is stored on the mw.iap.unibe tub server. This is
 open access. Please contact Alistair Bell (alistair.bell@unibe.ch) 
 for assistance. 
 
-## Usage
-to be written
-
-## Features
-None as yet
 
 ## Contributions 
 Project created by Alistair Bell. 
